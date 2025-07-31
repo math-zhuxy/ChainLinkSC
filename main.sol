@@ -43,6 +43,7 @@ contract CHAINLINK {
         oracleAddressList = new address[](0);
     }
 
+    // 注册成为预言机节点
     function registerOracleNode(jobType[] memory job_type_list) public returns (bool) {
         require(userBalances[msg.sender] >= LIMIT_STAKE_NUM, "not enough money");
         userBalances[msg.sender] -= LIMIT_STAKE_NUM;
