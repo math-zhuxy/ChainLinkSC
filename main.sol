@@ -6,27 +6,18 @@ interface TARGET_CONTRACT {
 }
 
 contract CHAINLINK {
-    enum jobType {
-        finance,
-        weather,
-        api_call
-    }
     struct RequestBody {
         uint256 id;
         address requester;
-        jobType job_type;
         string url;
-        address[] oracles_list;
         uint256 Fee;
         uint256[] searchRes;
-        address[] oracleNodes;
+        address[] resOracleNodes;
         uint256 givenNum;
     }
 
-    event oracleRequestEvent(uint256 indexed requestID, address[] node_list, jobType job_type, string url, uint256 fee);
+    event oracleRequestEvent(uint256 indexed requestID, string url, uint256 fee);
     event requestFulfulledEvent(uint256 indexed requestID, string result, uint256 nodeID);
-
-    mapping(address => jobType[]) public oracleNodeJobType;
 
     address[] public oracleAddressList;
     uint256 public totalRequestNum;
@@ -35,7 +26,6 @@ contract CHAINLINK {
     mapping(uint256 => RequestBody) requestList;
 
     uint256 public constant LIMIT_STAKE_NUM = 80;
-    uint256 public constant MAX_SEARCH_NUM = 10;
     uint256 public constant LIMIT_FEE_PRICE = 10;
     uint256 public constant DEDUCE_PRICE = 40;
 
@@ -45,73 +35,37 @@ contract CHAINLINK {
     }
 
     // 注册成为预言机节点
-    function registerOracleNode(jobType[] memory job_type_list) public returns (bool) {
-        // To do: 判断节点是否余额足够，扣除余额
-        // require(nodeStackBalance[msg.sender] >= LIMIT_STAKE_NUM, "not enough money");
+    function registerOracleNode() public returns (bool) {
+        // 判断是否已经存在
+        for (uint256 i = 0; i < oracleAddressList.length; i++) {
+            if (oracleAddressList[i] == msg.sender) {
+                return false;
+            }
+        }
         nodeStackBalance[msg.sender] = LIMIT_STAKE_NUM;
-        oracleNodeJobType[msg.sender] = job_type_list;
         oracleAddressList.push(msg.sender);
-        return (true);
-    }
-
-    function calculateReqNode(jobType job_type) private view returns (address[] memory) {
-        uint256 num_count = 0;
-        for (uint256 i = 0; i < oracleAddressList.length; i++) {
-            address oracle_addr = oracleAddressList[i];
-            jobType[] memory job_type_list = oracleNodeJobType[oracle_addr];
-            for (uint256 j = 0; j < job_type_list.length; j++) {
-                if (job_type_list[j] == job_type) {
-                    num_count++;
-                    break;
-                }
-            }
-        }
-
-        address[] memory node_addr_list = new address[](num_count);
-        uint256 index = 0;
-
-        for (uint256 i = 0; i < oracleAddressList.length; i++) {
-            address oracle_addr = oracleAddressList[i];
-            jobType[] memory job_type_list = oracleNodeJobType[oracle_addr];
-            bool isJob = false;
-            for (uint256 j = 0; j < job_type_list.length; j++) {
-                if (job_type_list[j] == job_type) {
-                    isJob = true;
-                    break;
-                }
-            }
-            if (isJob) {
-                node_addr_list[index] = oracle_addr;
-                index++;
-            }
-        }
-
-        return node_addr_list;
+        return true;
     }
 
     // 查询者查询函数
-    function requestForMsg(
-        string memory url,
-        jobType jobtype,
-        uint256 fee
-    ) public returns (bool) {
-        require(fee >= LIMIT_FEE_PRICE && fee % MAX_SEARCH_NUM == 0, "too less fee");
-        require(nodeStackBalance[msg.sender] >= fee, "not enough money");
-        address[] memory node_lists = calculateReqNode(jobtype);
+    function requestForMsg(string memory url, uint256 fee) public returns (bool) {
+        require(fee >= LIMIT_FEE_PRICE, "too less fee");
+        if (oracleAddressList.length <= 1) {
+            return false;
+        }
+
         uint256 req_id = totalRequestNum++;
 
         requestList[req_id] = RequestBody({
             id: req_id,
             requester: msg.sender,
-            job_type: jobtype,
             url: url,
-            oracles_list: node_lists,
             Fee: fee,
-            searchRes: new uint256[](node_lists.length),
-            oracleNodes: new address[](node_lists.length),
+            searchRes: new uint256[](oracleAddressList.length),
+            resOracleNodes: new address[](oracleAddressList.length),
             givenNum: 0
         });
-        emit oracleRequestEvent(req_id, node_lists, jobtype, url, fee);
+        emit oracleRequestEvent(req_id, url, fee);
         return true;
     }
 
@@ -124,8 +78,8 @@ contract CHAINLINK {
         if (num == 0) {
             return false;
         }
-        for (uint256 i = 0; i < num; i++) {
-            if (requestList[id].oracleNodes[i] == addr) {
+        for (uint256 index = 0; index < num; index++) {
+            if (requestList[id].resOracleNodes[index] == addr) {
                 return true;
             }
         }
@@ -133,10 +87,14 @@ contract CHAINLINK {
     }
 
     // 删除oracle list中的一个元素
-    function removeItem(uint256 index) private returns (bool) {
-        require(index < oracleAddressList.length, "index out of bounds");
-        oracleAddressList[index] = oracleAddressList[oracleAddressList.length - 1];
-        oracleAddressList.pop();
+    function removeItem(address node_name) private returns (bool) {
+        for (uint256 i = 0; i < oracleAddressList.length; i++) {
+            if (oracleAddressList[i] == node_name) {
+                oracleAddressList[i] = oracleAddressList[oracleAddressList.length - 1];
+                oracleAddressList.pop();
+                break;
+            }
+        }
         return true;
     }
 
@@ -144,59 +102,54 @@ contract CHAINLINK {
     function evaluateNodePerf(
         uint256 id,
         uint256 final_result,
-        uint256 std_num
+        uint256 square_sum
     ) private returns (bool) {
-        for (uint256 i = 0; i < MAX_SEARCH_NUM; i++) {
-            uint256 node_res = requestList[id].searchRes[i];
-            if (final_result - std_num >= node_res || final_result + std_num <= node_res) {
+        uint256 std_num = square_sum / requestList[id].givenNum - final_result * final_result;
+        for (uint256 index = 0; index < requestList[id].givenNum; index++) {
+            address node_name = requestList[id].resOracleNodes[index];
+            uint256 node_res = requestList[id].searchRes[index];
+            if (final_result + std_num <= node_res || final_result - std_num >= node_res) {
                 // 扣除代币
-                nodeStackBalance[requestList[id].oracles_list[i]] -= DEDUCE_PRICE;
+                nodeStackBalance[node_name] -= DEDUCE_PRICE;
             }
             // 移除节点
-            if (nodeStackBalance[requestList[id].oracles_list[i]] <= 0) {
-                address node_name = requestList[id].oracles_list[i];
-                for (uint256 j = 0; j < oracleAddressList.length; j++) {
-                    if (oracleAddressList[j] == node_name) {
-                        removeItem(j);
-                        break;
-                    }
-                }
+            if (nodeStackBalance[node_name] <= 0) {
+                removeItem(node_name);
             }
         }
         return true;
     }
 
     // 预言机节点查询传入的函数
-    function fufillReqEvent(uint256 id, uint256 result) public returns (bool) {
+    function fufillReqEvent(uint256 id, uint256 result) public returns (uint256, bool) {
         if (isInReqList(id, msg.sender)) {
-            return false;
+            return (0, false);
         }
         uint256 num = requestList[id].givenNum;
         requestList[id].searchRes[num] = result;
-        requestList[id].oracleNodes[num] = msg.sender;
+        requestList[id].resOracleNodes[num] = msg.sender;
         requestList[id].givenNum++;
 
         // 如果预言机返回的数量足够，结算余额和最终结果
-        if (requestList[id].givenNum == MAX_SEARCH_NUM) {
+        if (requestList[id].givenNum * 3 >= 2 * oracleAddressList.length) {
             uint256 final_result = 0;
-            uint256 std_num = 0;
-            for (uint256 i = 0; i < requestList[id].givenNum; i++) {
-                nodeStackBalance[requestList[id].oracleNodes[i]] += requestList[i].Fee / MAX_SEARCH_NUM;
-                final_result += requestList[id].searchRes[i];
-                std_num += requestList[id].searchRes[i]**2;
+            uint256 square_sum = 0;
+            for (uint256 index = 0; index < requestList[id].givenNum; index++) {
+                address node_name = requestList[id].resOracleNodes[index];
+                nodeStackBalance[node_name] += requestList[index].Fee / requestList[id].givenNum;
+                final_result += requestList[id].searchRes[index];
+                square_sum += requestList[id].searchRes[index]**2;
             }
             TARGET_CONTRACT TargetContract = TARGET_CONTRACT(requestList[id].requester);
+            final_result = final_result / requestList[id].givenNum;
 
-            evaluateNodePerf(id, final_result, std_num);
-
-            final_result = final_result / MAX_SEARCH_NUM;
-
-            std_num -= final_result * final_result;
-            std_num = std_num / MAX_SEARCH_NUM;
+            // 评估节点信息
+            evaluateNodePerf(id, final_result, square_sum);
 
             // 调用查询者合约函数，将结果传入
             TargetContract.callData(final_result);
+            return (final_result, true);
         }
-        return true;
+        return (0, false);
     }
 }
