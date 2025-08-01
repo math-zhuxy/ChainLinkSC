@@ -31,12 +31,13 @@ contract CHAINLINK {
     address[] public oracleAddressList;
     uint256 public totalRequestNum;
 
-    mapping(address => uint256) public userBalances;
+    mapping(address => uint256) public nodeStackBalance;
     mapping(uint256 => RequestBody) requestList;
 
     uint256 public constant LIMIT_STAKE_NUM = 80;
     uint256 public constant MAX_SEARCH_NUM = 10;
     uint256 public constant LIMIT_FEE_PRICE = 10;
+    uint256 public constant DEDUCE_PRICE = 40;
 
     constructor() {
         totalRequestNum = 0;
@@ -45,8 +46,9 @@ contract CHAINLINK {
 
     // 注册成为预言机节点
     function registerOracleNode(jobType[] memory job_type_list) public returns (bool) {
-        require(userBalances[msg.sender] >= LIMIT_STAKE_NUM, "not enough money");
-        userBalances[msg.sender] -= LIMIT_STAKE_NUM;
+        // To do: 判断节点是否余额足够，扣除余额
+        // require(nodeStackBalance[msg.sender] >= LIMIT_STAKE_NUM, "not enough money");
+        nodeStackBalance[msg.sender] = LIMIT_STAKE_NUM;
         oracleNodeJobType[msg.sender] = job_type_list;
         oracleAddressList.push(msg.sender);
         return (true);
@@ -94,7 +96,7 @@ contract CHAINLINK {
         uint256 fee
     ) public returns (bool) {
         require(fee >= LIMIT_FEE_PRICE && fee % MAX_SEARCH_NUM == 0, "too less fee");
-        require(userBalances[msg.sender] >= fee, "not enough money");
+        require(nodeStackBalance[msg.sender] >= fee, "not enough money");
         address[] memory node_lists = calculateReqNode(jobtype);
         uint256 req_id = totalRequestNum++;
 
@@ -130,6 +132,40 @@ contract CHAINLINK {
         return false;
     }
 
+    // 删除oracle list中的一个元素
+    function removeItem(uint256 index) private returns (bool) {
+        require(index < oracleAddressList.length, "index out of bounds");
+        oracleAddressList[index] = oracleAddressList[oracleAddressList.length - 1];
+        oracleAddressList.pop();
+        return true;
+    }
+
+    // 判断节点结果是否正确
+    function evaluateNodePerf(
+        uint256 id,
+        uint256 final_result,
+        uint256 std_num
+    ) private returns (bool) {
+        for (uint256 i = 0; i < MAX_SEARCH_NUM; i++) {
+            uint256 node_res = requestList[id].searchRes[i];
+            if (final_result - std_num >= node_res || final_result + std_num <= node_res) {
+                // 扣除代币
+                nodeStackBalance[requestList[id].oracles_list[i]] -= DEDUCE_PRICE;
+            }
+            // 移除节点
+            if (nodeStackBalance[requestList[id].oracles_list[i]] <= 0) {
+                address node_name = requestList[id].oracles_list[i];
+                for (uint256 j = 0; j < oracleAddressList.length; j++) {
+                    if (oracleAddressList[j] == node_name) {
+                        removeItem(j);
+                        break;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
     // 预言机节点查询传入的函数
     function fufillReqEvent(uint256 id, uint256 result) public returns (bool) {
         if (isInReqList(id, msg.sender)) {
@@ -143,14 +179,23 @@ contract CHAINLINK {
         // 如果预言机返回的数量足够，结算余额和最终结果
         if (requestList[id].givenNum == MAX_SEARCH_NUM) {
             uint256 final_result = 0;
+            uint256 std_num = 0;
             for (uint256 i = 0; i < requestList[id].givenNum; i++) {
-                userBalances[requestList[id].oracleNodes[i]] += requestList[i].Fee / MAX_SEARCH_NUM;
+                nodeStackBalance[requestList[id].oracleNodes[i]] += requestList[i].Fee / MAX_SEARCH_NUM;
                 final_result += requestList[id].searchRes[i];
+                std_num += requestList[id].searchRes[i]**2;
             }
             TARGET_CONTRACT TargetContract = TARGET_CONTRACT(requestList[id].requester);
 
+            evaluateNodePerf(id, final_result, std_num);
+
+            final_result = final_result / MAX_SEARCH_NUM;
+
+            std_num -= final_result * final_result;
+            std_num = std_num / MAX_SEARCH_NUM;
+
             // 调用查询者合约函数，将结果传入
-            TargetContract.callData(final_result / MAX_SEARCH_NUM);
+            TargetContract.callData(final_result);
         }
         return true;
     }
