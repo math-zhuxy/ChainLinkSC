@@ -38,7 +38,7 @@
 	},
 	"settings": {
 		"compilationTarget": {
-			"main.sol": "TARGET_CONTRACT"
+			"link.sol": "TARGET_CONTRACT"
 		},
 		"evmVersion": "prague",
 		"libraries": {},
@@ -52,12 +52,12 @@
 		"remappings": []
 	},
 	"sources": {
-		"main.sol": {
-			"keccak256": "0x725ed33e8af961313eb18584fad420af235854f6d9a518f8f2cefca560a709b5",
+		"link.sol": {
+			"keccak256": "0x58cafe36497fc51864fe960a821b49e14ce91e5ead44888c32e04c0420891bd9",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://72328cab7fcd05bcfdfe9bc7c242a68fb7e1979349379f87f53268894b9c48aa",
-				"dweb:/ipfs/QmSSt9b3kDdCPHHxrDB6gdT4GYwB7MHNZxoDwHMhreW4kA"
+				"bzz-raw://da1f9aeaeeac691a6b75baa33b57908d5391afcc2d9b529001bcbede6296b364",
+				"dweb:/ipfs/QmVz38BuD3euXfdozwqTx3NuBC7KwJ1eRGVK8pK8TikGGP"
 			]
 		}
 	},
