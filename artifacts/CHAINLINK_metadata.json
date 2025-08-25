@@ -14,50 +14,19 @@
 				"anonymous": false,
 				"inputs": [
 					{
-						"indexed": true,
+						"indexed": false,
 						"internalType": "uint256",
-						"name": "requestID",
+						"name": "id",
 						"type": "uint256"
 					},
 					{
 						"indexed": false,
-						"internalType": "string",
-						"name": "url",
-						"type": "string"
-					},
-					{
-						"indexed": false,
 						"internalType": "uint256",
-						"name": "fee",
+						"name": "kind",
 						"type": "uint256"
 					}
 				],
-				"name": "oracleRequestEvent",
-				"type": "event"
-			},
-			{
-				"anonymous": false,
-				"inputs": [
-					{
-						"indexed": true,
-						"internalType": "uint256",
-						"name": "requestID",
-						"type": "uint256"
-					},
-					{
-						"indexed": false,
-						"internalType": "string",
-						"name": "result",
-						"type": "string"
-					},
-					{
-						"indexed": false,
-						"internalType": "uint256",
-						"name": "nodeID",
-						"type": "uint256"
-					}
-				],
-				"name": "requestFulfulledEvent",
+				"name": "reqEvent",
 				"type": "event"
 			},
 			{
@@ -73,7 +42,7 @@
 						"type": "uint256"
 					}
 				],
-				"name": "fufillReqEvent",
+				"name": "fufillReq",
 				"outputs": [
 					{
 						"internalType": "bool",
@@ -82,6 +51,25 @@
 					}
 				],
 				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "id",
+						"type": "uint256"
+					}
+				],
+				"name": "getResult",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
 				"type": "function"
 			},
 			{
@@ -138,13 +126,8 @@
 			{
 				"inputs": [
 					{
-						"internalType": "string",
-						"name": "url",
-						"type": "string"
-					},
-					{
 						"internalType": "uint256",
-						"name": "fee",
+						"name": "kind",
 						"type": "uint256"
 					}
 				],
@@ -157,6 +140,35 @@
 					}
 				],
 				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "requestMap",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "id",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "kind",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "Res",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
 				"type": "function"
 			},
 			{
@@ -201,11 +213,11 @@
 	},
 	"sources": {
 		"link.sol": {
-			"keccak256": "0x58cafe36497fc51864fe960a821b49e14ce91e5ead44888c32e04c0420891bd9",
+			"keccak256": "0x619196a4311ff07c478e4572a553bc3351f677404a1b964b2915465bcfdefd57",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://da1f9aeaeeac691a6b75baa33b57908d5391afcc2d9b529001bcbede6296b364",
-				"dweb:/ipfs/QmVz38BuD3euXfdozwqTx3NuBC7KwJ1eRGVK8pK8TikGGP"
+				"bzz-raw://e057fd35b933e502f9ede77f4111146baf08603d2a3a2650ecd5f6c1d03cca96",
+				"dweb:/ipfs/QmXMRZc4eDoMMgUCGkNY8nuvaXZrehquQFdiodxjkGkqh1"
 			]
 		}
 	},
